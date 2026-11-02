@@ -11,7 +11,7 @@ export function Privacy() {
       <p className="muto">Versione Beta · aggiornata a novembre 2026</p>
 
       <h2>Chi tratta i tuoi dati</h2>
-      <p>Pronò! è un gioco di pronostici tra amici, in fase di prova (Beta). Titolare del trattamento: Andrea Ranalli (persona fisica). Contatto per ogni richiesta sui tuoi dati: andrea.ranalli.94@gmail.com.</p>
+      <p>Pronò! è un gioco di pronostici tra amici, in fase di prova (Beta). Titolare del trattamento: Andrea Ranalli (persona fisica). Contatto per ogni richiesta sui tuoi dati: [indirizzo dedicato, da inserire prima dell'apertura al pubblico].</p>
 
       <h2>Quali dati raccogliamo</h2>
       <ul>

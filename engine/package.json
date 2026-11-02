@@ -1,0 +1,21 @@
+{
+  "name": "@prono/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Motore di calcolo di Pronò!: classifiche, punteggi, tabelloni. Funzioni pure, senza Firebase.",
+  "main": "./index.js",
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "scripts": {
+    "types": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "*"
+  }
+}

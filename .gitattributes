@@ -1,0 +1,10 @@
+# Fine riga uniforme (Windows, macOS e Linux): nel repository sempre LF
+* text=auto eol=lf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.pdf  binary
+*.xlsx binary
+*.ico  binary
+*.woff2 binary

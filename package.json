@@ -1,0 +1,23 @@
+{
+  "name": "prono",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pronò! — piattaforma di pronostici tra amici, multi-sport e non solo. Motore di calcolo, app e documentazione.",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "engine",
+    "app"
+  ],
+  "scripts": {
+    "test": "node --test engine/test/*.test.js",
+    "types": "npm run types -w engine",
+    "dev": "npm run types && npm run dev -w app",
+    "build": "npm run types && npm run build -w app",
+    "typecheck": "npm run types && npm run typecheck -w app",
+    "deploy": "npm run build && npx --yes firebase-tools deploy --only firestore:rules,firestore:indexes,hosting",
+    "onedrive": "node scripts/esporta-onedrive.mjs"
+  }
+}

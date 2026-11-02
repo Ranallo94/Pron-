@@ -1,0 +1,32 @@
+# dipendenze e build
+node_modules/
+dist/
+coverage/
+.vite/
+
+# segreti: MAI nel repository
+.env
+.env.*
+!.env.example
+sa.json
+*service-account*.json
+*serviceAccount*.json
+*-adminsdk-*.json
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# sistema e editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# tipi generati dal motore (npm run types)
+engine/types/

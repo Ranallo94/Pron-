@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// BASE DI PARTENZA: tutto chiuso.
+// Queste regole non permettono nessuna lettura né scrittura. Si pubblicano per sicurezza finché
+// le regole vere (utenti, competizioni, iscrizioni, pronostici, leghe) non sono scritte E provate
+// con gli emulatori. Vedi docs/schema-dati.md e docs/PIANO_MIGRAZIONE_TOTALE.md (Fase 0).
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

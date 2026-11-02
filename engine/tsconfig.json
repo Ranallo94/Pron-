@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowJs": true,
+    "checkJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "types",
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": ["index.js", "bonus.js", "bracket.js", "classifica.js", "ko.js", "ordinamenti.js", "partite.js", "punteggi.js", "ranking.js", "speciali.js", "descrittori/*.js"]
+}

@@ -4,6 +4,7 @@ import { Esplora } from './pages/Esplora';
 import { Profilo } from './pages/Profilo';
 import { Impostazioni } from './pages/Impostazioni';
 import { Privacy } from './pages/Privacy';
+import { PaginaCompetizione } from './archivio/Competizione';
 import { firebaseConfigurato } from './firebase';
 import { useAuth } from './auth/AuthProvider';
 import { Accesso, ScegliNickname, VerificaEmail } from './auth/Schermate';
@@ -21,6 +22,7 @@ function Corpo() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/esplora" element={<Esplora />} />
+      <Route path="/c/:id" element={<PaginaCompetizione />} />
       <Route path="/profilo" element={<Profilo />} />
       <Route path="/impostazioni" element={<Impostazioni />} />
       <Route path="*" element={<Home />} />

@@ -30,3 +30,6 @@ desktop.ini
 
 # tipi generati dal motore (npm run types)
 engine/types/
+
+# Pacchetti di importazione generati (contengono dati dei partecipanti)
+scripts/importa/out/

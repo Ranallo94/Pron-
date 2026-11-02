@@ -100,3 +100,39 @@ input:focus-visible, .bottone:focus-visible, .link:focus-visible { outline: 2px 
 .ok { color: #8fe3b0; font-size: .9rem; }
 .separatore { display: flex; align-items: center; gap: 10px; color: var(--muto); font-size: .8rem; }
 .separatore::before, .separatore::after { content: ''; flex: 1; height: 1px; background: var(--blu-bordo); }
+
+/* ── Competizioni e archivi ── */
+.blocco { text-decoration: none; color: inherit; display: grid; }
+.tabs { display: flex; gap: 6px; margin: 14px 0 8px; overflow-x: auto; }
+.tabs.sotto { margin-top: 4px; }
+.tabs-voce {
+  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; padding: 8px 14px; border-radius: 999px;
+  background: transparent; color: var(--muto); border: 1px solid var(--blu-bordo); white-space: nowrap;
+}
+.tabs-voce.attiva { background: var(--arancio); color: #1a1208; border-color: var(--arancio); }
+input[type="search"], select {
+  font: inherit; color: var(--testo); background: var(--blu-superficie); border: 1px solid var(--blu-bordo);
+  border-radius: 10px; padding: 10px 12px; width: 100%; margin-top: 8px;
+}
+.classifica { list-style: none; display: grid; gap: 6px; margin-top: 12px; }
+.voce { display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--blu-superficie); border: 1px solid var(--blu-bordo); border-radius: 12px; }
+.voce.mia { border-color: var(--arancio); }
+.pos { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--muto); }
+.punti { font-weight: 700; }
+.spunta { color: #8fe3b0; }
+.link-nudo { font: inherit; background: none; border: 0; color: inherit; text-align: left; cursor: pointer; padding: 6px 0; }
+.mini { padding: 6px 10px; min-height: 0; font-size: .78rem; }
+.partita { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; padding: 4px 0; font-size: .9rem; }
+.partita .sq.dx { text-align: right; }
+.partita .esito { font-weight: 700; text-align: center; }
+.vince { font-weight: 700; color: var(--arancio); }
+.partita.ok { background: rgba(143, 227, 176, .09); border-radius: 8px; padding-left: 6px; padding-right: 6px; }
+.partita.no { opacity: .75; }
+.dettaglio { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.chip { font-size: .75rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--blu-bordo); }
+.chip.ok { border-color: #8fe3b0; color: #8fe3b0; }
+.chip.no { color: var(--muto); }
+.quasi { color: #ffd27a; }
+.turno { display: grid; gap: 4px; margin-top: 8px; }
+.testo-lista { padding-left: 20px; display: grid; gap: 4px; font-size: .9rem; }

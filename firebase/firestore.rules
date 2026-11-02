@@ -196,8 +196,10 @@ service cloud.firestore {
             || (request.time >= cd.scadenze[sid] && cd.get('riaperte', {}).get(sid, false) != true);
         }
 
-        // Le schede degli altri le leggono solo gli iscritti approvati (non chiunque abbia un account)
+        // Le schede degli altri le leggono solo gli iscritti approvati (non chiunque abbia un account).
+        // Eccezione: un ARCHIVIO (competizione conclusa importata dalle vecchie app) è visibile a tutti gli utenti attivi.
         allow read: if attivo() && (resource.data.uid == request.auth.uid || adminComp(c)
+          || compDoc(c).get('archivio', false) == true
           || (approvato(c)
               && (resource.data.get('visibile', false) == true || svelata(resource.data.schedaId))));
 
@@ -223,6 +225,42 @@ service cloud.firestore {
       // Classifiche: scritte solo dal server
       match /classifiche/{doc} {
         allow read: if attivo();
+      }
+
+      // ── Archivi: partecipanti storici e abbinamento con gli account ──────────
+      // `storici/{sid}`: i partecipanti della vecchia app (solo nickname), scritti dall'importazione (server).
+      match /storici/{sid} {
+        allow read: if attivo();
+      }
+
+      // Abbinamento: ognuno dichiara quale partecipante storico è lui. Un partecipante si abbina a un solo
+      // account (documento abbinamenti/{sid}) e un account a un solo partecipante (documento miei/{uid}).
+      // I due documenti si scrivono insieme (batch). In caso di conflitto decide l'admin, che può
+      // riassegnare o togliere; ognuno può togliere il proprio abbinamento sbagliato.
+      match /abbinamenti/{sid} {
+        allow read: if attivo();
+        allow create: if attivo() && compDoc(c).get('archivio', false) == true
+          && request.resource.data.keys().hasOnly(['uid', 'creataIl'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.creataIl == request.time
+          && exists(/databases/$(database)/documents/competizioni/$(c)/storici/$(sid))
+          && getAfter(/databases/$(database)/documents/competizioni/$(c)/miei/$(request.auth.uid)).data.sid == sid;
+        allow create, update: if adminComp(c)
+          && request.resource.data.keys().hasOnly(['uid', 'creataIl'])
+          && request.resource.data.uid is string
+          && exists(/databases/$(database)/documents/competizioni/$(c)/storici/$(sid));
+        allow delete: if attivo() && (resource.data.uid == request.auth.uid || adminComp(c));
+      }
+      match /miei/{uid} {
+        allow read: if attivo() && (uid == request.auth.uid || adminComp(c));
+        allow create: if attivo() && uid == request.auth.uid && compDoc(c).get('archivio', false) == true
+          && request.resource.data.keys().hasOnly(['sid', 'creataIl'])
+          && request.resource.data.creataIl == request.time
+          && getAfter(/databases/$(database)/documents/competizioni/$(c)/abbinamenti/$(request.resource.data.sid)).data.uid == request.auth.uid;
+        allow create, update: if adminComp(c)
+          && request.resource.data.keys().hasOnly(['sid', 'creataIl'])
+          && request.resource.data.sid is string;
+        allow delete: if attivo() && (uid == request.auth.uid || adminComp(c));
       }
     }
 

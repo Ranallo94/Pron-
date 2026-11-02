@@ -53,6 +53,12 @@ beforeEach(async () => {
     await set('competizioni/chiusa', compBase({ pronosticiAperti: false }));
     await set('competizioni/riaperta', compBase({ scadenze: { principale: tra(-2) }, riaperte: { principale: true } }));
     await set('competizioni/svelata', compBase({ scadenze: { principale: tra(-2) }, svelati: { principale: true } }));
+    // archivio (competizione conclusa importata dalle vecchie app): nessuno è iscritto, tutti la leggono
+    await set('competizioni/arch', compBase({ stato: 'conclusa', archivio: true, scadenze: { principale: tra(-9000) } }));
+    await set('competizioni/arch/admins/adm1', { creataIl: tra(-1) });
+    await set('competizioni/arch/storici/s1', { nickname: 'Superfra' });
+    await set('competizioni/arch/storici/s2', { nickname: 'Betto' });
+    await set('competizioni/arch/schede/s1__principale', { uid: 's1', schedaId: 'principale', dati: { x: 1 }, visibile: true, aggiornatoIl: tra(-9000) });
     // admin e iscrizioni
     await set('competizioni/f1/admins/adm1', { creataIl: tra(-1) });
     for (const c of ['f1', 'scaduta', 'riaperta', 'svelata', 'chiusa', 'privata']) {
@@ -532,5 +538,92 @@ describe('configurazione, abbonamenti e zone riservate', () => {
   test('un utente non può darsi il ruolo di proprietario scrivendo dati', async () => {
     await assertFails(setDoc(doc(utente('zoe'), 'competizioni/f1/admins/zoe'), { creataIl: serverTimestamp() }));
     await assertFails(setDoc(doc(utente('zoe'), 'competizioni/mia'), { ...compBase(), creataDa: 'zoe', creataIl: serverTimestamp() }));
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+describe('archivi: partecipanti storici e abbinamento', () => {
+  const abbina = (db, uid, sid, comp = 'arch') => {
+    const b = writeBatch(db);
+    b.set(doc(db, `competizioni/${comp}/abbinamenti/${sid}`), { uid, creataIl: serverTimestamp() });
+    b.set(doc(db, `competizioni/${comp}/miei/${uid}`), { sid, creataIl: serverTimestamp() });
+    return b.commit();
+  };
+
+  test('un archivio lo leggono tutti gli utenti attivi, anche non iscritti: schede e storici', async () => {
+    await assertSucceeds(getDoc(doc(utente('zoe'), 'competizioni/arch/schede/s1__principale')));
+    await assertSucceeds(getDoc(doc(utente('zoe'), 'competizioni/arch/storici/s1')));
+    await assertFails(getDoc(doc(anonimo(), 'competizioni/arch/schede/s1__principale')));
+    await assertFails(getDoc(doc(nonVerificato('zoe'), 'competizioni/arch/schede/s1__principale')));
+  });
+
+  test('una competizione normale non diventa leggibile da tutti', async () => {
+    await assertFails(getDoc(doc(utente('zoe'), 'competizioni/f1/schede/ana__principale')));
+  });
+
+  test('i client non scrivono né partecipanti storici né schede dell\'archivio', async () => {
+    await assertFails(setDoc(doc(utente('zoe'), 'competizioni/arch/storici/s9'), { nickname: 'Falso' }));
+    await assertFails(setDoc(doc(utente('zoe'), 'competizioni/arch/schede/s1__principale'),
+      { uid: 'zoe', schedaId: 'principale', dati: {}, visibile: true, aggiornatoIl: serverTimestamp() }));
+  });
+
+  test('ognuno si abbina a un partecipante storico (coppia di documenti in batch)', async () => {
+    await assertSucceeds(abbina(utente('zoe'), 'zoe', 's1'));
+    await assertSucceeds(getDoc(doc(utente('ugo'), 'competizioni/arch/abbinamenti/s1')));
+  });
+
+  test('un partecipante storico si abbina a un solo account (primo arrivato)', async () => {
+    await assertSucceeds(abbina(utente('zoe'), 'zoe', 's1'));
+    await assertFails(abbina(utente('ugo'), 'ugo', 's1'));
+  });
+
+  test('un account si abbina a un solo partecipante, finché non toglie il primo', async () => {
+    const db = utente('zoe');
+    await assertSucceeds(abbina(db, 'zoe', 's1'));
+    await assertFails(abbina(db, 'zoe', 's2'));
+    const b = writeBatch(db);
+    b.delete(doc(db, 'competizioni/arch/abbinamenti/s1'));
+    b.delete(doc(db, 'competizioni/arch/miei/zoe'));
+    await assertSucceeds(b.commit());
+    await assertSucceeds(abbina(db, 'zoe', 's2'));
+  });
+
+  test('non ci si abbina a nome di un altro, né a un partecipante inesistente', async () => {
+    await assertFails(abbina(utente('zoe'), 'ugo', 's1'));
+    await assertFails(abbina(utente('zoe'), 'zoe', 'inventato'));
+  });
+
+  test('abbinamento solo negli archivi', async () => {
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'competizioni/f1/storici/s1'), { nickname: 'X' }));
+    await assertFails(abbina(utente('zoe'), 'zoe', 's1', 'f1'));
+  });
+
+  test('un solo documento della coppia non basta', async () => {
+    await assertFails(setDoc(doc(utente('zoe'), 'competizioni/arch/abbinamenti/s1'), { uid: 'zoe', creataIl: serverTimestamp() }));
+    await assertFails(setDoc(doc(utente('zoe'), 'competizioni/arch/miei/zoe'), { sid: 's1', creataIl: serverTimestamp() }));
+  });
+
+  test('il mio abbinamento lo vedo io e l\'admin, non gli altri; l\'elenco chi-è-chi è pubblico', async () => {
+    await assertSucceeds(abbina(utente('zoe'), 'zoe', 's1'));
+    await assertSucceeds(getDoc(doc(utente('zoe'), 'competizioni/arch/miei/zoe')));
+    await assertSucceeds(getDoc(doc(utente('adm1'), 'competizioni/arch/miei/zoe')));
+    await assertFails(getDoc(doc(utente('ugo'), 'competizioni/arch/miei/zoe')));
+  });
+
+  test('conflitto: l\'admin riassegna o toglie; un altro utente no', async () => {
+    await assertSucceeds(abbina(utente('zoe'), 'zoe', 's1'));
+    await assertFails(deleteDoc(doc(utente('ugo'), 'competizioni/arch/abbinamenti/s1')));
+    const adm = utente('adm1');
+    const b = writeBatch(adm);
+    b.set(doc(adm, 'competizioni/arch/abbinamenti/s1'), { uid: 'ugo', creataIl: serverTimestamp() });
+    b.set(doc(adm, 'competizioni/arch/miei/ugo'), { sid: 's1', creataIl: serverTimestamp() });
+    b.delete(doc(adm, 'competizioni/arch/miei/zoe'));
+    await assertSucceeds(b.commit());
+  });
+
+  test('l\'admin di un\'altra competizione non tocca gli abbinamenti', async () => {
+    await assertSucceeds(abbina(utente('zoe'), 'zoe', 's1'));
+    await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'competizioni/arch/abbinamenti/s2'), { uid: 'ugo', creataIl: tra(-1) }));
+    await assertFails(setDoc(doc(utente('adm2x'), 'competizioni/arch/abbinamenti/s2'), { uid: 'zoe', creataIl: serverTimestamp() }));
   });
 });

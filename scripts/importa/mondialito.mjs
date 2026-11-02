@@ -14,24 +14,9 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { toIso, ordinaEPosiziona, leggiEnvLocale, caricaPacchetto } from './comune.mjs';
 
 export const ID_COMPETIZIONE = 'mondialito-2026';
-
-const toIso = (v) => {
-  if (!v) return null;
-  if (typeof v === 'string') return v;
-  if (typeof v.seconds === 'number') return new Date(v.seconds * 1000).toISOString();
-  return null;
-};
-
-/** Confronto lessicografico dei criteri di spareggio (più alto = meglio). */
-function confrontaSpareggio(a = [], b = []) {
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const d = (b[i] ?? 0) - (a[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
 
 /**
  * Trasforma l'export delle vecchie app nel pacchetto di documenti Firestore di Pronò!.
@@ -72,13 +57,8 @@ export function trasforma(exp, db) {
       totale: c.totale,
       spareggio: c.spareggio || [],
       dettaglio: c.breakdown || {},
-    }))
-    .sort((a, b) => (b.totale - a.totale) || confrontaSpareggio(a.spareggio, b.spareggio));
-  voci.forEach((v, i) => {
-    const prec = voci[i - 1];
-    const pari = prec && prec.totale === v.totale && confrontaSpareggio(prec.spareggio, v.spareggio) === 0;
-    v.posizione = pari ? prec.posizione : i + 1;
-  });
+    }));
+  ordinaEPosiziona(voci);
 
   // Risultati ufficiali: tolgo solo la provenienza tecnica ("fonte": inserimento manuale / API).
   const risultati = JSON.parse(JSON.stringify(exp.risultati || {}), (k, v) => (k === 'fonte' ? undefined : v));
@@ -127,49 +107,6 @@ export function trasforma(exp, db) {
 }
 
 // ── Da qui in giù: solo uso da riga di comando ───────────────────────────────
-function leggiEnvLocale(radice) {
-  const f = join(radice, '.env.local');
-  if (!existsSync(f)) return {};
-  const out = {};
-  for (const riga of readFileSync(f, 'utf8').split(/\r?\n/)) {
-    const m = riga.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-    if (m && !riga.trim().startsWith('#')) out[m[1]] = m[2];
-  }
-  return out;
-}
-
-/** Converte le date ISO in Timestamp e carica tutto con firebase-admin. */
-async function carica(pacchetto, { emulatore, progetto }) {
-  const { initializeApp, applicationDefault } = await import('firebase-admin/app');
-  const { getFirestore, Timestamp } = await import('firebase-admin/firestore');
-  if (emulatore) process.env.FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
-  initializeApp(emulatore ? { projectId: progetto } : { projectId: progetto, credential: applicationDefault() });
-  const fs = getFirestore();
-
-  const conDate = (o) => JSON.parse(JSON.stringify(o), (k, v) => v);
-  const ts = (iso) => (iso ? Timestamp.fromDate(new Date(iso)) : null);
-  const base = `competizioni/${pacchetto.id}`;
-
-  let batch = fs.batch(); let n = 0;
-  const scrivi = async (path, dati) => {
-    batch.set(fs.doc(path), dati);
-    if (++n % 400 === 0) { await batch.commit(); batch = fs.batch(); }
-  };
-
-  const c = conDate(pacchetto.competizione);
-  c.scadenze = { principale: ts(c.scadenze.principale) };
-  c.creataIl = Timestamp.now();
-  await scrivi(base, c);
-  for (const [sid, s] of Object.entries(pacchetto.storici)) await scrivi(`${base}/storici/${sid}`, s);
-  for (const [id, s] of Object.entries(pacchetto.schede)) await scrivi(`${base}/schede/${id}`, { ...s, aggiornatoIl: ts(s.aggiornatoIl) });
-  const ris = pacchetto.risultati.ufficiali;
-  await scrivi(`${base}/risultati/ufficiali`, { ...ris, aggiornatoIl: ts(ris.aggiornatoIl) });
-  const cla = pacchetto.classifiche.finale;
-  await scrivi(`${base}/classifiche/finale`, { ...cla, aggiornataIl: ts(cla.aggiornataIl) });
-  await batch.commit();
-  return n;
-}
-
 async function main() {
   const radice = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
   const dir = process.env.PRONO_SATELLITI_DIR || leggiEnvLocale(radice).PRONO_SATELLITI_DIR;
@@ -191,11 +128,11 @@ async function main() {
 
   const args = process.argv.slice(2);
   if (args.includes('--emulatore')) {
-    const n = await carica(pacchetto, { emulatore: true, progetto: 'demo-prono' });
+    const n = await caricaPacchetto(pacchetto, { emulatore: true, progetto: 'demo-prono' });
     console.log(`Caricati ${n} documenti nell'emulatore.`);
   } else if (args.includes('--produzione')) {
     const progetto = process.env.PRONO_FIREBASE_PROJECT || leggiEnvLocale(radice).VITE_FIREBASE_PROJECT_ID;
-    const n = await carica(pacchetto, { emulatore: false, progetto });
+    const n = await caricaPacchetto(pacchetto, { emulatore: false, progetto });
     console.log(`Caricati ${n} documenti su ${progetto}.`);
   }
 }

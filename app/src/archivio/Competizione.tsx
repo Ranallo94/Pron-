@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { messaggioErrore } from '../auth/servizio';
+import { TabPronosticiTennis, TabTabellone } from './Tennis';
 import {
   abbinati, leggiAbbinamenti, leggiClassifica, leggiCompetizione, leggiRisultati, leggiScheda, mioAbbinamento,
   sonoAdmin, togliAbbinamento,
@@ -80,6 +81,7 @@ export function PaginaCompetizione() {
   if (comp === undefined) return <p className="muto">Caricamento…</p>;
   if (!comp) return <section><h1>Competizione non trovata</h1><p className="muto">{errore}</p><Link to="/esplora">← Esplora</Link></section>;
 
+  const tennis = comp.descrittore.tipo === 'tennis-ko';
   const apriScheda = (sid: string) => { setScelto(sid); setTab('pronostici'); };
 
   return (
@@ -92,7 +94,7 @@ export function PaginaCompetizione() {
       <p className="muto">{comp.descrizione} · {comp.numeri?.partecipanti ?? classifica.length} partecipanti</p>
 
       <div className="tabs" role="tablist">
-        {TABS.map(t => (
+        {TABS.map(t => tennis && t.id === 'risultati' ? { ...t, nome: 'Tabellone' } : t).map(t => (
           <button key={t.id} role="tab" aria-selected={tab === t.id} className={'tabs-voce' + (tab === t.id ? ' attiva' : '')}
             onClick={() => setTab(t.id)}>{t.nome}</button>
         ))}
@@ -103,10 +105,10 @@ export function PaginaCompetizione() {
         <TabClassifica comp={comp} voci={classifica} abbinamenti={abbinamenti} mio={mio} admin={admin}
           uid={utente?.uid ?? ''} apri={apriScheda} ricarica={ricarica} setErrore={setErrore} />
       )}
-      {tab === 'risultati' && risultati && <TabRisultati comp={comp} ris={risultati} />}
-      {tab === 'pronostici' && risultati && (
-        <TabPronostici comp={comp} ris={risultati} voci={classifica} mio={mio} scelto={scelto} setScelto={setScelto} />
-      )}
+      {tab === 'risultati' && risultati && (tennis ? <TabTabellone comp={comp} ris={risultati} /> : <TabRisultati comp={comp} ris={risultati} />)}
+      {tab === 'pronostici' && risultati && (tennis
+        ? <TabPronosticiTennis comp={comp} ris={risultati} voci={classifica} mio={mio} scelto={scelto} setScelto={setScelto} />
+        : <TabPronostici comp={comp} ris={risultati} voci={classifica} mio={mio} scelto={scelto} setScelto={setScelto} />)}
       {tab === 'regole' && <TabRegole comp={comp} />}
     </section>
   );

@@ -6,10 +6,16 @@ import { auth, db } from '../firebase';
 /** Tipi dei dati di un ARCHIVIO (competizione conclusa importata dalle vecchie app). Vedi scripts/importa. */
 export interface Squadra { id: string; nome: string; girone: string; flag?: string }
 export interface PartitaGirone { id: string; giornata: number; casa: string; trasferta: string; data?: string; stadio?: string }
+export interface GiocatoreTennis { nome: string; seed: number | null; naz: string; rank: number | null }
 export interface Descrittore {
   tipo: string;
   squadre: Squadra[];
   gironi: Record<string, { squadre: string[]; partite: PartitaGirone[] }>;
+  /** Solo tornei di tennis a tabellone */
+  giocatori?: Record<string, GiocatoreTennis>;
+  turni?: { id: string; nome: string; matches: number }[];
+  bonus?: { id: string; label: string }[];
+  sostituiti?: { pid: string; uscito: string; entrato: string }[];
   regolamento?: { punteggi?: Record<string, unknown>; criteri_spareggio?: string[]; vincitori?: Record<string, string> };
 }
 export interface Competizione {
@@ -28,20 +34,30 @@ export interface Competizione {
 export interface VoceClassifica {
   sid: string; nickname: string; totale: number; posizione: number; spareggio: number[];
   dettaglio: Record<string, { punti?: number; corretti?: number; totale?: number; corretto?: boolean; dettaglio?: string }>;
+  /** Solo tennis: punti e indovinati per turno */
+  perTurno?: Record<string, { esiti: number; dettaglio: number; indovinati: number; dettagliEsatti: number }>;
 }
 export interface Esito { gol_casa?: number; gol_trasferta?: number }
 export interface PartitaKo extends Esito {
   casa?: string; trasferta?: string; vincitore?: string; modalita?: string;
   rig_casa?: number | null; rig_trasferta?: number | null;
 }
+export interface MatchTennis { vincitore?: string; set?: string }
 export interface Risultati {
   gironi: Record<string, Esito>;
   posizioni_finali_gironi: Record<string, string[]>;
   fase_eliminatoria: Record<string, Record<string, PartitaKo>>;
+  /** Solo tennis */
+  bracket?: Record<string, Record<string, MatchTennis>>;
+  bonus?: Record<string, string>;
+  classifiche?: Record<string, { pid: string; v: number }[]>;
   capocannoniere_finale?: { primo?: string; secondo?: string; terzo?: string };
   spareggio_terze?: string[];
 }
 export interface Scheda {
+  /** Solo tennis */
+  bracket?: Record<string, Record<string, MatchTennis>>;
+  bonus?: Record<string, string>;
   gironi?: Record<string, { gol_casa?: number; gol_trasferta?: number; segno?: string }>;
   fase_eliminatoria?: Record<string, Record<string, { vincitore?: string; modalita?: string }>>;
   capocannoniere?: { primo?: string; secondo?: string; terzo?: string };

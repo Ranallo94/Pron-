@@ -136,3 +136,9 @@ input[type="search"], select {
 .quasi { color: #ffd27a; }
 .turno { display: grid; gap: 4px; margin-top: 8px; }
 .testo-lista { padding-left: 20px; display: grid; gap: 4px; font-size: .9rem; }
+.partita2 { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; font-size: .9rem; }
+details > summary { cursor: pointer; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+.tessere { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 14px; }
+.tessera { display: grid; padding: 14px; background: var(--blu-superficie); border: 1px solid var(--blu-bordo); border-radius: var(--raggio); }
+.tessera .numero { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.8rem; color: var(--arancio); line-height: 1.1; }

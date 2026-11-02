@@ -60,11 +60,15 @@ export function trasformaTennis(exp, db, cfg) {
   const pronostici = arrayInMappa(exp.pronostici);
 
   // Partecipanti storici: chi ha una scheda; solo nickname. I pronostici di chi non c'è più (orfani) si scartano.
+  // Se il vecchio sito aveva una classifica, chi non c'era (account di prova, esclusi) non entra.
+  const inClassifica = new Set((exp.classifica_snapshot?.partecipanti || []).map(c => c.id));
   const storici = {};
   let orfani = 0;
+  const fuoriClassifica = [];
   for (const sid of Object.keys(pronostici)) {
     const p = part[sid];
     if (!p) { orfani++; continue; }
+    if (inClassifica.size > 0 && !inClassifica.has(sid)) { fuoriClassifica.push(String(p.nickname || p.nome || sid)); continue; }
     storici[sid] = { nickname: String(p.nickname || p.nome || 'Anonimo').trim() };
   }
 
@@ -169,6 +173,7 @@ export function trasformaTennis(exp, db, cfg) {
     classifiche: { finale: { voci, fonte: 'ricalcolata-dal-motore', aggiornataIl: toIso(exp._meta?.timestamp) || toIso(ris.updatedAt) } },
     _stat: {
       partecipanti: Object.keys(storici).length, schede: Object.keys(schede).length, orfaniScartati: orfani,
+      fuoriClassificaScartati: fuoriClassifica,
       confrontoConSito: { uguali, diversi, senzaConfronto: voci.length - uguali - diversi.length },
     },
   };

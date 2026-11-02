@@ -25,6 +25,7 @@ Il brief di progetto e le decisioni sono in [CLAUDE.md](./CLAUDE.md). Tutta la d
 ```bash
 npm install            # una volta, dopo aver clonato
 npm test               # test del motore (include la parità con le vecchie app, se PRONO_SATELLITI_DIR è impostata)
+npm run test:regole    # prova le regole di sicurezza di Firestore con l'emulatore (serve Java, vedi PRONO_JAVA_HOME)
 npm run dev            # avvia l'app in locale (http://localhost:5173)
 npm run typecheck      # controllo dei tipi (genera prima i tipi del motore)
 npm run build          # compila l'app in app/dist

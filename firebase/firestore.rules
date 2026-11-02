@@ -1,11 +1,268 @@
 rules_version = '2';
 
-// BASE DI PARTENZA: tutto chiuso.
-// Queste regole non permettono nessuna lettura né scrittura. Si pubblicano per sicurezza finché
-// le regole vere (utenti, competizioni, iscrizioni, pronostici, leghe) non sono scritte E provate
-// con gli emulatori. Vedi docs/schema-dati.md e docs/PIANO_MIGRAZIONE_TOTALE.md (Fase 0).
+// ════════════════════════════════════════════════════════════════════════════
+// Pronò! — regole di sicurezza di Firestore (Beta)
+//
+// Principi:
+//  • Tutto ciò che non è esplicitamente permesso è NEGATO (ultima regola in fondo).
+//  • Si entra solo con account con email verificata e non disabilitato.
+//  • I dati calcolati (classifiche, leghe, appartenenze, statistiche, abbonamenti) li scrivono SOLO le
+//    funzioni server (che non passano dalle regole): nessun client può scriverli.
+//  • Un utente scrive solo i propri dati; un admin di competizione solo quelli della propria competizione;
+//    il proprietario della piattaforma (claim `owner`) può tutto ciò che è elencato qui.
+//  • I pronostici si scrivono solo se si è iscritti (approvati) E la scheda è ancora aperta.
+//
+// Ogni regola è provata da firebase/test/regole.test.js con l'emulatore (npm run test:regole).
+// Modello dati: docs/schema-dati.md §7. NON pubblicare questo file se i test non passano.
+// ════════════════════════════════════════════════════════════════════════════
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ── Funzioni di appoggio ────────────────────────────────────────────────
+    function accesso() {
+      return request.auth != null;
+    }
+    // Email verificata (anche gli accessi con Google lo sono)
+    function verificato() {
+      return accesso() && request.auth.token.get('email_verified', false) == true;
+    }
+    // Verificato E non disabilitato dal proprietario (documento disabilitati/{uid}, scritto solo dal server)
+    function attivo() {
+      return verificato() && !exists(/databases/$(database)/documents/disabilitati/$(request.auth.uid));
+    }
+    // Proprietario della piattaforma: claim personalizzato `owner`, assegnato solo dal server
+    function proprietario() {
+      return attivo() && request.auth.token.get('owner', false) == true;
+    }
+    function compDoc(c) {
+      return get(/databases/$(database)/documents/competizioni/$(c)).data;
+    }
+    // Admin della competizione: proprietario, oppure presente in competizioni/{c}/admins/{uid}
+    function adminComp(c) {
+      return proprietario()
+        || (attivo() && exists(/databases/$(database)/documents/competizioni/$(c)/admins/$(request.auth.uid)));
+    }
+    // Iscrizione approvata alla competizione
+    function approvato(c) {
+      return exists(/databases/$(database)/documents/competizioni/$(c)/iscrizioni/$(request.auth.uid))
+        && get(/databases/$(database)/documents/competizioni/$(c)/iscrizioni/$(request.auth.uid)).data.stato == 'approvato';
+    }
+    // Scheda aperta: competizione non in bozza né conclusa, interruttore generale non spento, e
+    // (scadenza non ancora passata OPPURE riaperta esplicitamente da un admin)
+    function schedaAperta(c, schedaId) {
+      let cd = compDoc(c);
+      return cd.stato != 'bozza' && cd.stato != 'conclusa'
+        && cd.get('pronosticiAperti', true) == true
+        && (cd.get('riaperte', {}).get(schedaId, false) == true || request.time < cd.scadenze[schedaId]);
+    }
+
+    // ── Nickname unici (documento nicknames/{minuscolo}) ───────────────────
+    match /nicknames/{nick} {
+      allow get: if attivo();
+      allow create: if attivo()
+        && nick.matches('^[a-z0-9_. -]{3,20}$')
+        && request.resource.data.keys().hasOnly(['uid', 'creataIl'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.creataIl == request.time;
+      // Si libera solo se il profilo non lo usa più (cambio nickname): niente nickname "orfani" da riprendere
+      allow delete: if attivo() && resource.data.uid == request.auth.uid
+        && (!existsAfter(/databases/$(database)/documents/profili/$(request.auth.uid))
+            || getAfter(/databases/$(database)/documents/profili/$(request.auth.uid)).data.nicknameLower != nick);
+    }
+
+    // ── Profilo pubblico ────────────────────────────────────────────────────
+    // Il nickname si crea insieme al documento nicknames (batch) e si può cambiare, al massimo una volta ogni
+    // 7 giorni (il primo cambio subito): sempre in batch, che libera il vecchio nickname, prende il nuovo e
+    // aggiorna il profilo. Così nessuno tiene due nickname né ne lascia uno "orfano" da riprendere.
+    match /profili/{uid} {
+      allow read: if attivo();
+      allow create: if attivo() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['nickname', 'nicknameLower', 'creataIl'])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.matches('^[A-Za-z0-9_. -]{3,20}$')
+        && request.resource.data.nicknameLower == request.resource.data.nickname.lower()
+        && request.resource.data.creataIl == request.time
+        && getAfter(/databases/$(database)/documents/nicknames/$(request.resource.data.nicknameLower)).data.uid == request.auth.uid;
+      allow update: if attivo() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['nickname', 'nicknameLower', 'creataIl', 'nicknameCambiatoIl'])
+        && request.resource.data.creataIl == resource.data.creataIl
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.matches('^[A-Za-z0-9_. -]{3,20}$')
+        && request.resource.data.nicknameLower == request.resource.data.nickname.lower()
+        && request.resource.data.nicknameCambiatoIl == request.time
+        && (resource.data.get('nicknameCambiatoIl', null) == null
+            || resource.data.nicknameCambiatoIl + duration.value(7, 'd') <= request.time)
+        && getAfter(/databases/$(database)/documents/nicknames/$(request.resource.data.nicknameLower)).data.uid == request.auth.uid
+        && (request.resource.data.nicknameLower == resource.data.nicknameLower
+            || !existsAfter(/databases/$(database)/documents/nicknames/$(resource.data.nicknameLower)));
+    }
+
+    // ── Dati privati dell'account ───────────────────────────────────────────
+    match /utenti/{uid} {
+      allow read: if attivo() && (uid == request.auth.uid || proprietario());
+      allow create: if attivo() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['eta14', 'privacyAccettataIl', 'terminiVersione', 'lingua', 'sportPreferiti', 'notifiche', 'aggiornatoIl'])
+        && request.resource.data.eta14 == true
+        && request.resource.data.privacyAccettataIl == request.time
+        && request.resource.data.aggiornatoIl == request.time;
+      allow update: if attivo() && uid == request.auth.uid
+        && request.resource.data.keys().hasOnly(['eta14', 'privacyAccettataIl', 'terminiVersione', 'lingua', 'sportPreferiti', 'notifiche', 'aggiornatoIl'])
+        && request.resource.data.eta14 == true
+        && request.resource.data.privacyAccettataIl == resource.data.privacyAccettataIl
+        && request.resource.data.aggiornatoIl == request.time;
+
+      // Elenco delle mie leghe: scritto solo dal server
+      match /leghe/{l} {
+        allow read: if attivo() && uid == request.auth.uid;
+      }
+    }
+
+    // ── Competizioni ────────────────────────────────────────────────────────
+    match /competizioni/{c} {
+      function valida(d) {
+        return d.nome is string && d.nome.size() >= 3 && d.nome.size() <= 80
+          && d.stato in ['bozza', 'iscrizioni_aperte', 'pronostici_aperti', 'in_corso', 'conclusa']
+          && d.formato in ['ordinamento', 'campionato-breve', 'tabellone']
+          && d.iscrizione in ['libera', 'approvazione']
+          && d.visibilita in ['pubblica', 'su_invito']
+          // su invito = nascosta dall'elenco e con iscrizione approvata da un admin (altrimenti basterebbe conoscerne l'indirizzo)
+          && (d.visibilita == 'pubblica' || d.iscrizione == 'approvazione')
+          && d.descrittore is map
+          && d.scadenze is map;
+      }
+
+      // Pubbliche: leggibili da chiunque sia attivo (le query devono filtrare visibilita == 'pubblica').
+      // Su invito: solo iscritti e admin.
+      allow get: if attivo() && (resource.data.visibilita == 'pubblica' || adminComp(c)
+        || exists(/databases/$(database)/documents/competizioni/$(c)/iscrizioni/$(request.auth.uid)));
+      allow list: if attivo() && (resource.data.visibilita == 'pubblica' || proprietario());
+
+      // Nella Beta le competizioni le crea solo il proprietario; le modificano proprietario e admin di competizione.
+      allow create: if proprietario() && valida(request.resource.data)
+        && request.resource.data.creataDa == request.auth.uid
+        && request.resource.data.creataIl == request.time;
+      allow update: if adminComp(c) && valida(request.resource.data)
+        && request.resource.data.creataDa == resource.data.creataDa
+        && request.resource.data.creataIl == resource.data.creataIl;
+      allow delete: if proprietario();
+
+      // Admin della competizione: li assegna solo il proprietario
+      match /admins/{uid} {
+        allow read: if adminComp(c);
+        allow write: if proprietario();
+      }
+
+      // Iscrizioni: ognuno crea la propria; la approva/rifiuta un admin
+      match /iscrizioni/{uid} {
+        allow read: if attivo() && (uid == request.auth.uid || adminComp(c));
+        allow create: if attivo() && uid == request.auth.uid
+          && request.resource.data.keys().hasOnly(['stato', 'creataIl'])
+          && request.resource.data.creataIl == request.time
+          && compDoc(c).stato in ['iscrizioni_aperte', 'pronostici_aperti', 'in_corso']
+          && request.resource.data.stato == (compDoc(c).iscrizione == 'libera' ? 'approvato' : 'in_attesa');
+        allow update: if adminComp(c)
+          && request.resource.data.keys().hasOnly(['stato', 'creataIl', 'decisoIl'])
+          && request.resource.data.creataIl == resource.data.creataIl
+          && request.resource.data.stato in ['in_attesa', 'approvato', 'rifiutato'];
+        allow delete: if attivo() && (uid == request.auth.uid || adminComp(c));
+      }
+
+      // Schede di pronostico: documento {uid}__{schedaId} (schedaId = "principale", "g6", "speciali"…).
+      // La scadenza di ogni scheda sta in competizioni/{c}.scadenze[schedaId].
+      //
+      // VISIBILITÀ: ogni giocatore sceglie con `visibile` se gli altri la vedono già prima della scadenza
+      // (di default NO). ALLA SCADENZA tutte le schede si svelano da sole. Se l'admin riapre una scheda dopo la
+      // scadenza (recuperi), resta nascosta agli altri finché non la richiude. `svelati[schedaId]` permette
+      // all'admin di svelare in anticipo.
+      match /schede/{schedaDoc} {
+        function proprietarioScheda() {
+          return schedaDoc.split('__')[0] == request.auth.uid;
+        }
+        function idScheda() {
+          return schedaDoc.split('__')[1];
+        }
+        function formaValida() {
+          return request.resource.data.keys().hasOnly(['uid', 'schedaId', 'dati', 'visibile', 'aggiornatoIl'])
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.schedaId == idScheda()
+            && request.resource.data.dati is map
+            && request.resource.data.visibile is bool
+            && request.resource.data.aggiornatoIl == request.time;
+        }
+        // Scheda svelata a tutti: svelata dall'admin, oppure scadenza passata e non riaperta
+        function svelata(sid) {
+          let cd = compDoc(c);
+          return cd.get('svelati', {}).get(sid, false) == true
+            || (request.time >= cd.scadenze[sid] && cd.get('riaperte', {}).get(sid, false) != true);
+        }
+
+        // Le schede degli altri le leggono solo gli iscritti approvati (non chiunque abbia un account)
+        allow read: if attivo() && (resource.data.uid == request.auth.uid || adminComp(c)
+          || (approvato(c)
+              && (resource.data.get('visibile', false) == true || svelata(resource.data.schedaId))));
+
+        allow create, update: if attivo() && proprietarioScheda() && approvato(c)
+          && schedaAperta(c, idScheda()) && formaValida();
+        // Correzioni dell'admin: in qualunque momento, mantenendo la forma
+        allow create, update: if adminComp(c)
+          && request.resource.data.keys().hasOnly(['uid', 'schedaId', 'dati', 'visibile', 'aggiornatoIl'])
+          && request.resource.data.schedaId == idScheda()
+          && request.resource.data.dati is map
+          && request.resource.data.visibile is bool
+          && request.resource.data.aggiornatoIl == request.time;
+        allow delete: if attivo() && ((proprietarioScheda() && schedaAperta(c, idScheda())) || adminComp(c));
+      }
+
+      // Risultati ufficiali: li inserisce un admin (o la sincronizzazione server)
+      match /risultati/{doc} {
+        allow read: if attivo();
+        allow create, update: if adminComp(c) && request.resource.data.aggiornatoIl == request.time;
+        allow delete: if adminComp(c);
+      }
+
+      // Classifiche: scritte solo dal server
+      match /classifiche/{doc} {
+        allow read: if attivo();
+      }
+    }
+
+    // ── Leghe ───────────────────────────────────────────────────────────────
+    // Create, entrate, uscite e classifiche passano dalle funzioni server. Il capitano può solo rinominare.
+    match /leghe/{l} {
+      allow get: if attivo() && (resource.data.tipo == 'pubblica' || proprietario()
+        || exists(/databases/$(database)/documents/leghe/$(l)/membri/$(request.auth.uid)));
+      allow list: if attivo() && (resource.data.tipo == 'pubblica' || proprietario());
+      allow update: if attivo() && resource.data.capitano == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome'])
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() >= 3 && request.resource.data.nome.size() <= 40;
+
+      match /membri/{uid} {
+        allow read: if attivo() && (proprietario()
+          || exists(/databases/$(database)/documents/leghe/$(l)/membri/$(request.auth.uid)));
+      }
+      // Codice di invito: lo legge solo il capitano
+      match /segreti/{doc} {
+        allow read: if attivo() && get(/databases/$(database)/documents/leghe/$(l)).data.capitano == request.auth.uid;
+      }
+      match /classifica/{doc} {
+        allow read: if attivo() && (proprietario()
+          || exists(/databases/$(database)/documents/leghe/$(l)/membri/$(request.auth.uid)));
+      }
+    }
+
+    // ── Configurazione, abbonamenti, moderazione, statistiche ──────────────
+    // Configurazione e interruttori per piano: leggibili da chiunque sia attivo, scrive solo il server/Console.
+    match /config/{doc} {
+      allow read: if attivo();
+    }
+    // Piano dell'utente (oggi "beta" per tutti; in futuro Pro): lo legge l'interessato, lo scrive solo il server.
+    match /abbonamenti/{uid} {
+      allow read: if attivo() && uid == request.auth.uid;
+    }
+    // disabilitati/{uid} e statistiche/**: invisibili e non scrivibili dai client (nessuna regola = negato).
+
+    // ── Tutto il resto è negato ─────────────────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

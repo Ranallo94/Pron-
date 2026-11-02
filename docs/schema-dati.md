@@ -208,6 +208,45 @@ Dal gioco sulla Serie A (vedi [MIGRAZIONE_LITALIANO.md](./MIGRAZIONE_LITALIANO.m
 
 Nel motore: criteri `h2h.<campo>` (scontri diretti in posizione) in `ranking.js`; `vincitoriGiornata`/`turniVinti` in `classifica.js`; `scegliVincitoreSpeciale`/`riepilogoCartellini` in `speciali.js`; descrittore in `engine/descrittori/litaliano-serie-a.js`. Lo stato della giornata, le riaperture e il reset sono logica dell'app, non del motore.
 
+## 7. Modello Firestore della Beta (2026-11-03)
+
+Questo è il modello **in vigore** per la Beta, con le regole in `firebase/firestore.rules` e i test in `firebase/test/regole.test.js` (`npm run test:regole`, emulatore Firestore, nessun accesso al progetto vero). Sostituisce le bozze dei paragrafi precedenti dove differiscono. Le collezioni usano nomi italiani.
+
+**Ruoli**
+- **Utente:** account con **email verificata** (anche Google) e non presente in `disabilitati`.
+- **Proprietario della piattaforma:** claim personalizzato `owner: true`, assegnato **solo dal server** (script con credenziali di servizio).
+- **Admin di competizione:** documento `competizioni/{c}/admins/{uid}`, nominato solo dal proprietario.
+- **Capitano di lega:** campo `capitano` della lega.
+
+| Percorso | Contenuto | Chi scrive | Chi legge |
+|---|---|---|---|
+| `nicknames/{minuscolo}` | `{uid, creataIl}`, **unicità** del nickname (senza distinguere maiuscole) | l'utente, solo per sé | utenti attivi (solo lettura singola) |
+| `profili/{uid}` | `{nickname, nicknameLower, creataIl}`, profilo pubblico; creato **insieme** al nickname (batch). Il nickname **si può cambiare** (`nicknameCambiatoIl`), al massimo **una volta ogni 7 giorni**, sempre in batch: libera il vecchio, prende il nuovo, aggiorna il profilo | l'utente, creazione e cambio nickname | utenti attivi |
+| `utenti/{uid}` | preferenze e consensi: `eta14` (obbligatorio vero), `privacyAccettataIl` (non riscrivibile), `terminiVersione`, `lingua`, `sportPreferiti`, `notifiche` | l'utente | l'utente e il proprietario |
+| `utenti/{uid}/leghe/{l}` | le mie leghe (comodità di lettura) | **server** | l'utente |
+| `competizioni/{c}` | `nome, categoria, sport, formato, stato, iscrizione (libera/approvazione), visibilita (pubblica/su_invito), descrittore, scadenze{schedaId: data}, riaperte{schedaId}, svelati{schedaId}, pronosticiAperti, tema, creataDa, creataIl` | creazione: proprietario; modifica: admin di competizione (non cambia `creataDa`/`creataIl`) | pubbliche: utenti attivi (le liste devono filtrare `visibilita == 'pubblica'`); su invito: iscritti e admin. **Su invito richiede `iscrizione: 'approvazione'`** (altrimenti basterebbe conoscerne l'indirizzo per entrare) |
+| `competizioni/{c}/admins/{uid}` | admin della competizione | proprietario | admin |
+| `competizioni/{c}/iscrizioni/{uid}` | `{stato, creataIl, decisoIl}`: nasce `approvato` se la competizione è `libera`, `in_attesa` se serve l'approvazione. L'utente **non** si auto-approva | l'utente (creazione e cancellazione), l'admin (stato) | l'interessato e gli admin |
+| `competizioni/{c}/schede/{uid}__{schedaId}` | il pronostico: `{uid, schedaId, dati, visibile, aggiornatoIl}`; `visibile` (bool, **di default no**) lo sceglie il giocatore. `schedaId` = `principale`, `g6`, `speciali`… | l'iscritto approvato, **solo se la scheda è aperta** (competizione non in bozza né conclusa, `pronosticiAperti` non spento, e **scadenza non passata o riaperta dall'admin**); l'admin per le correzioni | l'interessato e l'admin; gli altri **iscritti approvati** (mai gli estranei) solo se il giocatore l'ha resa `visibile`, **oppure alla scadenza (svelamento automatico)**, oppure se l'admin l'ha svelata in anticipo (`svelati[schedaId]`). Una scheda riaperta dopo la scadenza torna nascosta finché non si richiude |
+| `competizioni/{c}/risultati/{doc}` | risultati ufficiali | admin di competizione (o il server) | utenti attivi |
+| `competizioni/{c}/classifiche/{doc}` | classifiche calcolate | **solo il server** | utenti attivi |
+| `leghe/{l}` | `{competizioneId, nome, tipo, capitano}`. Le private le vedono i membri | **server**; il capitano può solo rinominare | pubbliche: utenti attivi; private: membri |
+| `leghe/{l}/membri/{uid}`, `classifica/{doc}` | appartenenza e classifica della lega | **solo il server** | membri |
+| `leghe/{l}/segreti/invito` | codice di invito | **solo il server** | il capitano |
+| `abbonamenti/{uid}` | il piano (oggi `beta` per tutti; in futuro Pro) | **solo il server** | l'interessato |
+| `config/{doc}` | configurazione e interruttori per piano | solo server/Console | utenti attivi |
+| `disabilitati/{uid}` | utenti sospesi | solo server/Console | nessuno (invisibile ai client) |
+| `statistiche/**` | conteggi d'uso propri, aggregati | **solo il server** | nessuno |
+
+**Cosa devono fare le funzioni server (non passano dalle regole):** creare lega e codice di invito, far entrare un utente in una lega con il codice, ricalcolare e scrivere le classifiche con il motore, assegnare/togliere il claim `owner`, disabilitare utenti, scrivere piani e statistiche, cancellare tutti i dati di un account.
+
+**Scelte di sicurezza da sapere**
+- **Tutto ciò che non è elencato è negato** (ultima regola).
+- Le scritture di ruoli, classifiche, appartenenze e piano **non esistono lato client**: un utente non può promuoversi, né alterare i punteggi.
+- Ogni data scritta dal client deve essere **l'orario del server** (`aggiornatoIl == request.time`): non si può falsificare quando si è giocato.
+- Un'operazione con le regole usa al massimo ~4 letture di appoggio (limite 10).
+- **Provate con mutazioni:** indebolendo di proposito 16 regole (iscrizione, scadenza, nickname e suo cambio, classifiche, creazione, su invito, visibilità e svelamento delle schede, lettura di leghe, auto-approvazione) i test falliscono.
+
 ## Prossimi passi implementativi
 1. ~~Motore punteggi + motore ranking gironi~~ **FATTO** (2026-09-03): `engine/ranking.js`, `engine/punteggi.js`, `engine/bracket.js` — funzioni pure, nessuna dipendenza Firebase, 17 test (`npm test`) coprono classifica con parità/scontri diretti/ordine manuale, punteggio partite con bonus annidato, qualificazione, posto in griglia con gate, bracket KO forgiving, e un caso end-to-end. Vedi `engine/test/`.
 2. Cloud Functions: motore sync generico (orchestrazione polling adattivo, uguale per tutti gli sport) + primo adapter `espn_calcio` per il pilota. Importerà `engine/` così com'è.

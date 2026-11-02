@@ -1,6 +1,6 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore';
 
 /**
  * Configurazione Firebase: SOLO da variabili d'ambiente (VITE_FIREBASE_*), mai scritta nel codice.
@@ -28,5 +28,23 @@ function app(): FirebaseApp {
   return (_app ??= initializeApp(config));
 }
 
-export const auth = (): Auth => getAuth(app());
-export const db = (): Firestore => getFirestore(app());
+// Solo in sviluppo e solo se richiesto: collega Auth e Firestore agli emulatori locali (nessun dato vero toccato).
+const usaEmulatori = import.meta.env.DEV && env.VITE_USA_EMULATORI === '1';
+let _auth: Auth | null = null;
+let _db: Firestore | null = null;
+
+export function auth(): Auth {
+  if (!_auth) {
+    _auth = getAuth(app());
+    if (usaEmulatori) connectAuthEmulator(_auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  }
+  return _auth;
+}
+
+export function db(): Firestore {
+  if (!_db) {
+    _db = getFirestore(app());
+    if (usaEmulatori) connectFirestoreEmulator(_db, '127.0.0.1', 8080);
+  }
+  return _db;
+}

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
 import { messaggioErrore } from '../auth/servizio';
 import { TabPronosticiTennis, TabTabellone } from './Tennis';
+import { applicaTema } from './tema';
 import {
   abbinati, leggiAbbinamenti, leggiClassifica, leggiCompetizione, leggiRisultati, leggiScheda, mioAbbinamento,
   sonoAdmin, togliAbbinamento,
@@ -78,6 +79,9 @@ export function PaginaCompetizione() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, utente?.uid]);
 
+  // Colori originali della competizione su tutta l'app, finché la pagina è aperta
+  useEffect(() => (comp ? applicaTema(comp.id, comp.tema) : undefined), [comp]);
+
   if (comp === undefined) return <p className="muto">Caricamento…</p>;
   if (!comp) return <section><h1>Competizione non trovata</h1><p className="muto">{errore}</p><Link to="/esplora">← Esplora</Link></section>;
 
@@ -87,11 +91,17 @@ export function PaginaCompetizione() {
   return (
     <section>
       <p className="muto piccolo"><Link to="/esplora">← Esplora</Link></p>
-      <div className="riga">
-        <h1>{comp.nome}</h1>
-        <span className="etichetta">{comp.archivio ? 'Archivio · concluso' : comp.stato}</span>
-      </div>
-      <p className="muto">{comp.descrizione} · {comp.numeri?.partecipanti ?? classifica.length} partecipanti</p>
+      <header className="comp-testa">
+        <div className="riga">
+          <h1>{comp.nome}</h1>
+          <span className="etichetta">{comp.archivio ? 'Concluso' : comp.stato}</span>
+        </div>
+        <p className="muto">{comp.descrizione}</p>
+        <div className="dettaglio">
+          <span className="chip">{comp.numeri?.partecipanti ?? classifica.length} partecipanti</span>
+          {comp.dataInizio && <span className="chip">{new Date(comp.dataInizio).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} – {comp.dataFine ? new Date(comp.dataFine).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>}
+        </div>
+      </header>
 
       <div className="tabs" role="tablist">
         {TABS.map(t => tennis && t.id === 'risultati' ? { ...t, nome: 'Tabellone' } : t).map(t => (

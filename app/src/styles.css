@@ -8,6 +8,7 @@
   --testo: #f3f5f9;
   --muto: #9fb0cc;
   --raggio: 14px;
+  --su-accento: #1a1208;
   --tabbar-h: 64px;
   color-scheme: dark;
 }
@@ -91,7 +92,7 @@ input:focus-visible, .bottone:focus-visible, .link:focus-visible { outline: 2px 
 .casella input { margin-top: 4px; }
 .bottone {
   font: inherit; font-weight: 600; cursor: pointer; padding: 12px 16px; border-radius: 10px; border: 0;
-  background: var(--arancio); color: #1a1208; min-height: 44px;
+  background: var(--arancio); color: var(--su-accento); min-height: 44px;
 }
 .bottone.secondario { background: transparent; color: var(--testo); border: 1px solid var(--blu-bordo); }
 .bottone:disabled { opacity: .6; cursor: default; }
@@ -104,13 +105,20 @@ input:focus-visible, .bottone:focus-visible, .link:focus-visible { outline: 2px 
 
 /* ── Competizioni e archivi ── */
 .blocco { text-decoration: none; color: inherit; display: grid; }
-.tabs { display: flex; gap: 6px; margin: 14px 0 8px; overflow-x: auto; }
-.tabs.sotto { margin-top: 4px; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 14px 0 8px; }
+.tabs.sotto { grid-template-columns: repeat(3, 1fr); margin-top: 4px; }
 .tabs-voce {
-  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; padding: 8px 14px; border-radius: 999px;
-  background: transparent; color: var(--muto); border: 1px solid var(--blu-bordo); white-space: nowrap;
+  font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; padding: 8px 2px; border-radius: 999px; min-width: 0;
+  background: transparent; color: var(--muto); border: 1px solid var(--blu-bordo); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.tabs-voce.attiva { background: var(--arancio); color: #1a1208; border-color: var(--arancio); }
+.tabs-voce.attiva { background: var(--arancio); color: var(--su-accento); border-color: var(--arancio); }
+.comp-testa {
+  display: grid; gap: 6px; margin-top: 6px; padding: 14px 16px; border-radius: var(--raggio); border: 1px solid var(--blu-bordo);
+  background: linear-gradient(150deg, var(--blu-superficie), var(--blu));
+  border-top: 3px solid var(--arancio);
+}
+.comp-testa h1 { font-size: 1.35rem; margin: 0; }
 input[type="search"], select {
   font: inherit; color: var(--testo); background: var(--blu-superficie); border: 1px solid var(--blu-bordo);
   border-radius: 10px; padding: 10px 12px; width: 100%; margin-top: 8px;

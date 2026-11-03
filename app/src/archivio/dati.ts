@@ -26,6 +26,7 @@ export interface Competizione {
   stato: string;
   archivio?: boolean;
   descrizione?: string;
+  tema?: unknown;
   dataInizio?: string;
   dataFine?: string;
   numeri?: { partecipanti: number; schede: number };

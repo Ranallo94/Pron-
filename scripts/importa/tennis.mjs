@@ -21,11 +21,14 @@ import { toIso, ordinaEPosiziona, leggiEnvLocale, caricaPacchetto } from './comu
 export const SITI = {
   wimbledino: {
     id: 'wimbledino-2026', cartella: 'Wimbledino', db: 'wimbledon_db.json', motore: wimbledino,
-    nome: 'Wimbledino 2026', inizio: '2026-06-29', fine: '2026-07-12', colore: '#5b2a86',
+    nome: 'Wimbledino 2026', inizio: '2026-06-29', fine: '2026-07-12',
+    // verde e oro: la vecchia app andò online con questo tema (il viola/lime fu solo progettato)
+    tema: { sfondo: '#0a1f10', superficie: '#132a18', superficie2: '#1a3520', bordo: '#2a4a30', accento: '#f0b429', suAccento: '#0d1b12', secondario: '#1a6b35', testo: '#f0f4f1', muto: '#8aab8f' },
   },
   medusino: {
     id: 'medusino-2026', cartella: 'Medusino', db: 'usopen_db.json', motore: medusino,
-    nome: 'Medusino 2026', inizio: '2026-08-31', fine: '2026-09-13', colore: '#1f6fb2',
+    nome: 'Medusino 2026', inizio: '2026-08-31', fine: '2026-09-13',
+    tema: { sfondo: '#071a2f', superficie: '#0e2740', superficie2: '#143352', bordo: '#23486d', accento: '#f2e63d', suAccento: '#06182b', secondario: '#1d6fb8', testo: '#eef4fa', muto: '#8fa9c4' },
   },
 };
 
@@ -157,7 +160,7 @@ export function trasformaTennis(exp, db, cfg) {
     dataInizio: cfg.inizio,
     dataFine: cfg.fine,
     descrizione: `${db.evento} · ${db.tabellone}`,
-    tema: { colore: cfg.colore },
+    tema: cfg.tema,
     numeri: { partecipanti: Object.keys(storici).length, schede: Object.keys(schede).length },
     creataDa: 'importazione',
   };

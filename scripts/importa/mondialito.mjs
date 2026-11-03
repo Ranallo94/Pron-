@@ -90,7 +90,7 @@ export function trasforma(exp, db) {
     dataInizio: inizio,
     dataFine: db.meta?.data_fine || '2026-07-19',
     descrizione: db.meta?.torneo ? `${db.meta.torneo} · ${db.meta.edizione || ''}`.trim() : '',
-    tema: { colore: '#c9a227' },
+    tema: { sfondo: '#0a1f10', superficie: '#132a18', superficie2: '#1a3520', bordo: '#2a4a30', accento: '#f0b429', suAccento: '#0d1b12', secondario: '#1a6b35', testo: '#f0f4f1', muto: '#8aab8f' },
     numeri: { partecipanti: Object.keys(storici).length, schede: Object.keys(schede).length },
     creataDa: 'importazione',
   };

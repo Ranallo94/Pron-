@@ -12,7 +12,7 @@
     "app"
   ],
   "scripts": {
-    "test": "node --test engine/test/*.test.js scripts/importa/*.test.mjs",
+    "test": "node --test engine/test/*.test.js scripts/importa/*.test.mjs scripts/championsito/*.test.mjs",
     "test:regole": "node scripts/prova-regole.mjs",
     "types": "npm run types -w engine",
     "dev": "npm run types && npm run dev -w app",

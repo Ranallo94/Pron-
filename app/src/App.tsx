@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Esplora } from './pages/Esplora';
@@ -8,6 +9,7 @@ import { PaginaCompetizione } from './archivio/Competizione';
 import { firebaseConfigurato } from './firebase';
 import { useAuth } from './auth/AuthProvider';
 import { Accesso, ScegliNickname, VerificaEmail } from './auth/Schermate';
+import { Menu } from './Menu';
 
 // Le quattro sezioni della piattaforma (CLAUDE.md → "Struttura app").
 const SEZIONI = [
@@ -46,12 +48,25 @@ function Contenuto() {
 export function App() {
   const { stato } = useAuth();
   const conTabbar = !firebaseConfigurato || stato === 'pronto';
+  const [menuAperto, setMenuAperto] = useState(false);
+  const chiudiMenu = useCallback(() => setMenuAperto(false), []);
   return (
     <div className="app">
       <header className="app-header">
-        <span className="logo">Pronò<span className="logo-punto">!</span></span>
+        <div className="marchio">
+          {conTabbar ? (
+            <button className="logo-bottone" onClick={() => setMenuAperto(a => !a)} aria-expanded={menuAperto}
+              aria-controls="menu-laterale" aria-label={menuAperto ? 'Chiudi il menu' : 'Apri il menu'}>
+              <img src="/logo-mark.svg" alt="" className={'logo-mark' + (menuAperto ? ' ruotato' : '')} width="29" height="31" />
+            </button>
+          ) : (
+            <img src="/logo-mark.svg" alt="" className="logo-mark" width="29" height="31" />
+          )}
+          <span className="logo">Pronò<span className="logo-punto">!</span></span>
+        </div>
         <span className="beta">Beta</span>
       </header>
+      {conTabbar && <Menu aperto={menuAperto} chiudi={chiudiMenu} />}
 
       {!firebaseConfigurato && (
         <div className="avviso" role="status">

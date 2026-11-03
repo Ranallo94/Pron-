@@ -69,7 +69,7 @@ const valore = (riga) => Number(riga.statistics?.[0]?.value) || 0;
  * @param {{id:string,nome:string}[]} squadre   SQUADRE_UFFICIALI
  * @param {Record<string,{n:string,p:string}[]>} rose  ROSE
  */
-export function costruisci(uefa, squadre, rose, { maxRighe = 10 } = {}) {
+export function costruisci(uefa, squadre, rose, { maxRighe = 30 } = {}) {
   const avvisi = [];
   const nomiSq = Object.fromEntries(squadre.map(s => [s.id, s.nome]));
 

@@ -22,8 +22,8 @@ export const SITI = {
   wimbledino: {
     id: 'wimbledino-2026', cartella: 'Wimbledino', db: 'wimbledon_db.json', motore: wimbledino,
     nome: 'Wimbledino 2026', inizio: '2026-06-29', fine: '2026-07-12',
-    // verde e oro: la vecchia app andò online con questo tema (il viola/lime fu solo progettato)
-    tema: { sfondo: '#0a1f10', superficie: '#132a18', superficie2: '#1a3520', bordo: '#2a4a30', accento: '#f0b429', suAccento: '#0d1b12', secondario: '#1a6b35', testo: '#f0f4f1', muto: '#8aab8f' },
+    // viola e lime (design system di Wimbledino, in versione scura)
+    tema: { sfondo: '#1b0f2e', superficie: '#28173f', superficie2: '#34204f', bordo: '#4a3270', accento: '#c2e03a', suAccento: '#1c2406', secondario: '#00703c', testo: '#f7f4ea', muto: '#b4a6cf' },
   },
   medusino: {
     id: 'medusino-2026', cartella: 'Medusino', db: 'usopen_db.json', motore: medusino,

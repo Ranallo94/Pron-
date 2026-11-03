@@ -20,6 +20,11 @@ const VERDE_ORO: Tema = {
   sfondo: '#0a1f10', superficie: '#132a18', superficie2: '#1a3520', bordo: '#2a4a30',
   accento: '#f0b429', suAccento: '#0d1b12', secondario: '#1a6b35', testo: '#f0f4f1', muto: '#8aab8f',
 };
+// Wimbledon: viola Pantone 268 C e lime "pallina da tennis" (design system di Wimbledino), in versione scura
+const VIOLA_LIME: Tema = {
+  sfondo: '#1b0f2e', superficie: '#28173f', superficie2: '#34204f', bordo: '#4a3270',
+  accento: '#c2e03a', suAccento: '#1c2406', secondario: '#00703c', testo: '#f7f4ea', muto: '#b4a6cf',
+};
 const BLU_GIALLO: Tema = {
   sfondo: '#071a2f', superficie: '#0e2740', superficie2: '#143352', bordo: '#23486d',
   accento: '#f2e63d', suAccento: '#06182b', secondario: '#1d6fb8', testo: '#eef4fa', muto: '#8fa9c4',
@@ -27,7 +32,7 @@ const BLU_GIALLO: Tema = {
 
 export const TEMI_PREDEFINITI: Record<string, Tema> = {
   'mondialito-2026': VERDE_ORO,
-  'wimbledino-2026': VERDE_ORO,   // il tema viola/lime fu solo progettato: la vecchia app andò online verde e oro
+  'wimbledino-2026': VIOLA_LIME,  // la vecchia app andò online verde e oro; il viola/lime fu progettato e mai usato
   'medusino-2026': BLU_GIALLO,
 };
 
